@@ -1,0 +1,15 @@
+﻿services:
+  outfitcontrol:
+    image: outfitcontrol
+    ports:
+      - 80:8080
+    build:
+      context: .
+      dockerfile: OutfitControl/Dockerfile
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: "veryhardpassword"
+    ports:
+      - 3306:3306
