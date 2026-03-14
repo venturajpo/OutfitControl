@@ -2,9 +2,8 @@ using OutfitControl.Entities.Enum;
 
 namespace OutfitControl.Entities;
 
-public class Retirada
+public class Retirada : BaseEntity
 {
-    public int Id { get; set; }
     public Pedido Pedido { get; set; }
-    public DateTime Data { get; set; }
+    public DateOnly Data { get; set; }
 }

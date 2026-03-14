@@ -2,9 +2,9 @@ using OutfitControl.Entities.Enum;
 
 namespace OutfitControl.Entities;
 
-public class Lote
+public class Lote : BaseEntity
 {
-    public DateTime Data { get; set; }
+    public DateOnly Data { get; set; }
     public Peca Peca { get; set; }
     public int Quantidade { get; set; }
 }

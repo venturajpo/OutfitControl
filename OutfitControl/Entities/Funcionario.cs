@@ -2,8 +2,8 @@ using OutfitControl.Entities.Enum;
 
 namespace OutfitControl.Entities;
 
-public class Funcionario
+public class Funcionario : BaseEntity
 {
-    public int Id { get; set; }
     public string NomeCompleto { get; set; }
+    public string Matricula { get; set; }
 }

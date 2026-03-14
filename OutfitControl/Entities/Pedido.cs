@@ -2,11 +2,11 @@ using OutfitControl.Entities.Enum;
 
 namespace OutfitControl.Entities;
 
-public class Pedido
+public class Pedido : BaseEntity
 {
-    public int Id { get; set; }
     public Funcionario Funcionario { get; set; }
-    public DateTime Data  { get; set; }
+    public DateOnly Data  { get; set; }
     public StatusPedido Status { get; set; }
     
+    public ICollection<PecaPorPedido> Pecas { get; set; }
 }
