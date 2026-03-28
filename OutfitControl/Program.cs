@@ -1,7 +1,7 @@
 using OutfitControl.Components;
 using OutfitControl.Database;
-using OutfitControl.Entities;
 using Microsoft.EntityFrameworkCore;
+using OutfitControl.Database.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +15,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 // Registro de repositórios
+builder.Services.AddScoped<FuncionarioRepository>();
+builder.Services.AddScoped<LoteRepository>();
+builder.Services.AddScoped<PecaRepository>();
+builder.Services.AddScoped<PecaPorPedidoRepository>();
+builder.Services.AddScoped<PedidoRepository>();
+builder.Services.AddScoped<RetiradaRepository>();
+
+// Registro da classe de serviço
+builder.Services.AddScoped<OutfitControlService>();
 
 var app = builder.Build();
 
