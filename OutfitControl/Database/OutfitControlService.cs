@@ -28,8 +28,10 @@ public class OutfitControlService
         _retiradaRepository = retriadaRepository;
     }
 
-    public void SolicitarUniformeDeFuncionario(Funcionario funcionario, IList<TipoPeca> tipoPecas, IList<string> tamanhoPecas, int quantidadePecas)
+    public void SolicitarUniformeDeFuncionario(Funcionario? funcionario, IList<TipoPeca> tipoPecas, IList<string> tamanhoPecas, int quantidadePecas)
     {
+        if (funcionario == null)
+            throw new ArgumentNullException(nameof(funcionario));
         if(tipoPecas == null)
             throw new ArgumentNullException(nameof(tipoPecas));
         if (tamanhoPecas == null)

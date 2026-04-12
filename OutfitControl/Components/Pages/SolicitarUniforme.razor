@@ -1,0 +1,302 @@
+@page "/SolicitarUniforme"
+@rendermode InteractiveServer
+@using System.Timers
+@using Microsoft.AspNetCore.Http.Extensions
+@using OutfitControl.Database
+@using OutfitControl.Database.Repositories
+@using OutfitControl.Entities
+@using OutfitControl.Entities.Enum
+@inject NavigationManager _uriHelper;
+@inject OutfitControlService _service
+@inject FuncionarioRepository _funcionarioRepository
+
+<PageTitle>Solicitar Uniforme</PageTitle>
+
+<h3>Solicitar Uniforme</h3>
+<form>
+    <div>
+        <label for="matricula-input" class="form-label">Número de Matrícula do funcionário: </label>
+        <input id="matricula-input" type="number" min="0" class="form-control"  @oninput="OnMatriculaInputChanged" placeholder="Matrícula"/>
+    
+        
+        @if (_matriculaValido.HasValue)
+        {
+            @if (_matriculaValido.Value == false)
+            {
+                <div class="alert alert-danger" role="alert">
+                    Tamanho de camiseta inválido!
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info" role="alert">
+                    <strong>Funcionário: </strong> @_nomeFuncionario
+                </div>
+            }
+        }
+    </div>
+    
+    <div>
+        <label for="tamanho-camiseta-select">Tamanho da camiseta: </label>
+        <select @onchange="OnTamanhoCamisetaSelectChanged"
+                id="tamanho-camiseta-select" class="form-select" >
+            <option disabled selected value>Selecione um tamanho</option>
+            @foreach (var t in _tamanhosLetrados)
+            {
+                <option value=@t> @t </option>
+            }
+        </select>
+        
+        @if (_tamanhoCamisetaValido is false)
+        {
+            <div class="alert alert-danger" role="alert">
+                Tamanho de camiseta inválido!
+            </div>
+        }
+        
+    </div>
+    
+    <div>
+        <label for="tamanho-calca-select">Tamanho da calça: </label>
+        <select @onchange="OnTamanhoCalcaSelectChanged"
+                id="tamanho-calca-select" class="form-select" >
+            @foreach (var t in _tamanhosLetrados)
+            {
+                <option value=@t>@t</option>
+            }
+        </select>
+        
+        @if (_tamanhoCalcaValido is false)
+        {
+            <div class="alert alert-danger" role="alert">
+                Tamanho de calça inválido!
+            </div>
+        }
+    </div>
+
+    <div>
+        <label for="tamanho-calcado-select">Tamanho do calçado: </label>
+        <select @onchange="OnTamanhoCalcadoSelectChanged"
+                id="tamanho-calcado-select" class="form-select" >
+            @foreach (var t in _tamanhosNumerados)
+            {
+                <option value=@t>@t</option>
+            }
+        </select>
+        
+        @if (_tamanhoCalcadoValido is false)
+        {
+            <div class="alert alert-danger" role="alert">
+                Tamanho de calçado inválido!
+            </div>
+        }
+    </div>    
+    
+    <div>
+        <label for="quantidade-input" class="form-label">Quantidade de peças: </label>
+        <input id="quantidade-input" type="number" min="0" class="form-control"  @oninput="OnQuantidadeInputChanged" placeholder="Quantidade"/>
+        
+        @if (_quantidadeValido is false)
+        {
+            <div class="alert alert-danger" role="alert">
+                Selecione ao menos 1.
+            </div>
+        }
+    </div>
+    
+    @if ((_matriculaValido ?? false)
+         && (_tamanhoCamisetaValido ?? false)
+         && (_tamanhoCalcaValido ?? false)
+         && (_tamanhoCalcadoValido ?? false)
+         && (_quantidadeValido ?? false)
+         && !_solicitacaoSucesso)
+    {    
+        <button type="button" class="btn btn-primary my-1" @onclick="SubmitCallback">Solicitar</button>
+    }
+    
+    @if (_solicitacaoSucesso)
+    {
+        <button type="reset" @onclick="() => { _uriHelper.NavigateTo(_uriHelper.Uri, true); }" class="btn btn-primary my-1">Limpar</button>
+    }
+    
+</form>
+
+@if (_solicitacaoSucesso)
+{
+    <div class="alert alert-success" role="alert">
+        Pedido solicitado!
+    </div>
+}
+
+@if (_solicitacaoErro)
+ {
+     <div class="alert alert-danger" role="alert">
+         Ocorreu um erro ao solicitar.
+     </div>
+ }
+
+@code {
+    private readonly List<string> _tamanhosLetrados = ["PP", "P", "M", "G", "GG", "EG"];
+    private readonly List<string> _tamanhosNumerados = Enumerable.Range(30, 50).Select(i => i.ToString()).ToList();
+
+    private EditContext? _editContext;
+
+    private string _matricula = string.Empty;
+    private string _tamanhoCamiseta = string.Empty;
+    private string _tamanhoCalca = string.Empty;
+    private string _tamanhoCalcado = string.Empty;
+    private int _quantidade;
+
+    private string _matriculaBusca = string.Empty;
+    private string _nomeFuncionario = string.Empty;
+    private Timer? _matriculaDebouncerTimer;
+
+    private bool? _matriculaValido;
+    private bool? _tamanhoCamisetaValido;
+    private bool? _tamanhoCalcaValido;
+    private bool? _tamanhoCalcadoValido;
+    private bool? _quantidadeValido;
+
+    private bool _solicitacaoSucesso = false;
+    private bool _solicitacaoErro = false;
+
+    private void OnMatriculaInputChanged(ChangeEventArgs e)
+    {
+        if (e.Value?.ToString()?.Length == 7)
+        {
+            _matriculaBusca = e.Value?.ToString() ?? string.Empty;
+            _matriculaDebouncerTimer?.Stop();
+            _matriculaDebouncerTimer?.Dispose();
+            _matriculaDebouncerTimer = new Timer(500); // Wait 500ms after last keystroke
+            _matriculaDebouncerTimer.Elapsed += OnMatriculaTimerElapsed;
+            _matriculaDebouncerTimer.AutoReset = false;
+            _matriculaDebouncerTimer.Start();
+        }
+    }
+
+    private async void OnMatriculaTimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        try
+        {
+            // Must use InvokeAsync to update UI from a background thread
+            await InvokeAsync(async () => { await PerformMatriculaSearch(_matriculaBusca); });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
+    private Task PerformMatriculaSearch(string text)
+    {
+        try
+        {
+            _nomeFuncionario = _funcionarioRepository.GetByMatricula(text)?.NomeCompleto ?? string.Empty;
+
+            if (_nomeFuncionario != string.Empty)
+            {
+                _matricula = text;
+                _matriculaValido = true;
+            }
+            else
+            {
+                _matriculaValido = false;
+            }
+
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+        catch (Exception exception)
+        {
+            return Task.FromException(exception);
+        }
+    }
+
+    private void OnTamanhoCamisetaSelectChanged(ChangeEventArgs e)
+    {
+        var tamanho = e.Value?.ToString() ?? string.Empty;
+
+        if (_tamanhosLetrados.Contains(tamanho))
+        {
+            _tamanhoCamiseta = tamanho;
+            _tamanhoCamisetaValido = true;
+        }
+
+        else
+        {
+            _tamanhoCamiseta = string.Empty;
+            _tamanhoCamisetaValido = false;
+        }
+    }
+
+    private void OnTamanhoCalcaSelectChanged(ChangeEventArgs e)
+    {
+        var tamanho = e.Value?.ToString() ?? string.Empty;
+
+        if (_tamanhosLetrados.Contains(tamanho))
+        {
+            _tamanhoCalca = tamanho;
+            _tamanhoCalcaValido = true;
+        }
+
+        else
+        {
+            _tamanhoCalca = string.Empty;
+            _tamanhoCalcaValido = false;
+        }
+    }
+
+    private void OnTamanhoCalcadoSelectChanged(ChangeEventArgs e)
+    {
+        var tamanho = e.Value?.ToString() ?? string.Empty;
+
+        if (_tamanhosNumerados.Contains(tamanho))
+        {
+            _tamanhoCalcado = tamanho;
+            _tamanhoCalcadoValido = true;
+        }
+
+        else
+        {
+            _tamanhoCalcado = string.Empty;
+            _tamanhoCalcadoValido = false;
+        }
+    }
+
+    private void OnQuantidadeInputChanged(ChangeEventArgs obj)
+    {
+        if (int.TryParse(obj.Value?.ToString(), out var quantidade))
+        {
+            _quantidade = quantidade;
+            _quantidadeValido = true;
+        }
+        else
+        {
+            _quantidade = 0;
+            _quantidadeValido = false;
+        }
+
+    }
+
+    private void SubmitCallback(MouseEventArgs _)
+    {
+        Funcionario? funcionario = _funcionarioRepository.GetByMatricula(_matricula);
+
+        List<TipoPeca> tipoPecas = [TipoPeca.Camiseta, TipoPeca.Calca, TipoPeca.Calcado];
+        List<string> tamanhos = [_tamanhoCamiseta, _tamanhoCalca, _tamanhoCalcado];
+
+        try
+        {
+            _service.SolicitarUniformeDeFuncionario(funcionario, tipoPecas, tamanhos, _quantidade);
+            _solicitacaoErro = false;
+            _solicitacaoSucesso = true;
+        }
+        catch (Exception ex)
+        {
+            _solicitacaoSucesso = true;
+            _solicitacaoErro = true;
+            Console.WriteLine(ex);
+        }
+    }
+
+}

@@ -14,4 +14,9 @@ public class PecaRepository(ApplicationDbContext context) : RepositoryBase<Peca>
         
         return retorno;
     }
+
+    public IQueryable<Peca> GetByTipo(TipoPeca tipoPeca)
+    {
+        return GetAll().Where(p => p.Tipo == tipoPeca);
+    }
 }
