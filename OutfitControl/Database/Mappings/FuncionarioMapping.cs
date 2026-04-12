@@ -19,7 +19,7 @@ public class FuncionarioMapping : IEntityTypeConfiguration<Funcionario>
             .ValueGeneratedOnAdd();
         
         builder.Property(f => f.NomeCompleto)
-            .HasColumnName("nome_completo")
+            .HasColumnName("nome")
             .HasColumnType("varchar")
             .HasMaxLength(100)
             .IsRequired();
