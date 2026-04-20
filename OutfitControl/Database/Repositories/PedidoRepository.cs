@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using OutfitControl.Entities;
 using OutfitControl.Entities.Enum;
 
@@ -8,5 +9,15 @@ public class PedidoRepository(ApplicationDbContext context) : RepositoryBase<Ped
     public IEnumerable<Pedido> GetPedidosNovos()
     {
         return GetAll().Where(p => p.Status == StatusPedido.Novo);
+    }
+
+    public IEnumerable<Pedido> GetAllComDetalhes()
+    {
+        return DbSet
+            .Include(p => p.Funcionario)
+            .Include(p => p.Pecas)
+                .ThenInclude(pp => pp.Peca)
+            .OrderByDescending(p => p.Data)
+            .ToList();
     }
 }

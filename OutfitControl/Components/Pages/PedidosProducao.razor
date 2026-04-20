@@ -1,0 +1,197 @@
+@page "/PedidosProducao"
+@rendermode InteractiveServer
+@using OutfitControl.Database
+@using OutfitControl.Database.Repositories
+@using OutfitControl.Entities
+@using OutfitControl.Entities.Enum
+@inject PedidoRepository _pedidoRepository
+@inject OutfitControlService _service
+
+<PageTitle>Pedidos para Produção</PageTitle>
+
+<h3 class="mb-4">Pedidos para Produção</h3>
+
+@if (_mensagemSucesso != string.Empty)
+{
+    <div class="alert alert-success alert-dismissible" role="alert">
+        @_mensagemSucesso
+        <button type="button" class="btn-close" @onclick="() => _mensagemSucesso = string.Empty"></button>
+    </div>
+}
+
+<!-- SEÇÃO: NOVOS PEDIDOS -->
+<div class="d-flex align-items-center mb-3 gap-2">
+    <span class="badge bg-primary fs-6 px-3 py-2">Novos Pedidos</span>
+    <span class="text-muted small">@_pedidosNovos.Count() pedido(s) aguardando</span>
+</div>
+
+@if (!_pedidosNovos.Any())
+{
+    <div class="alert alert-light border text-muted mb-4" role="alert">
+        Nenhum pedido novo no momento.
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-5">
+        @foreach (var pedido in _pedidosNovos)
+        {
+            bool expandido = _pedidoExpandidoId == pedido.Id;
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100 @(expandido ? "border-primary border-2" : "")"
+                     style="cursor: pointer; transition: box-shadow 0.2s;"
+                     @onclick="() => ToggleExpandir(pedido.Id)">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="card-title mb-0">@pedido.Funcionario.NomeCompleto</h5>
+                                <small class="text-muted">Matrícula: <strong>@pedido.Funcionario.Matricula</strong></small>
+                            </div>
+                            <span class="badge bg-primary">Novo</span>
+                        </div>
+                        <p class="card-text text-muted small mb-0">
+                            📅 @pedido.Data.ToString("dd/MM/yyyy")
+                        </p>
+                        <p class="card-text text-muted small mb-0">
+                            📦 @pedido.Pecas.Count peça(s)
+                        </p>
+
+                        @if (expandido)
+                        {
+                            <hr />
+                            <h6 class="fw-semibold">Peças Solicitadas:</h6>
+                            <ul class="list-unstyled mb-3">
+                                @foreach (var pp in pedido.Pecas)
+                                {
+                                    <li class="d-flex justify-content-between border-bottom py-1">
+                                        <span>
+                                            @GetIconePeca(pp.Peca.Tipo)
+                                            <strong>@pp.Peca.Tipo.ToString()</strong> — Tam. @pp.Peca.Tamanho
+                                        </span>
+                                        <span class="badge bg-secondary">@pp.Quantidade</span>
+                                    </li>
+                                }
+                            </ul>
+                            <button class="btn btn-success w-100"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => EnviarParaProducao(pedido)">
+                                🚀 Enviar para Produção
+                            </button>
+                        }
+                        else
+                        {
+                            <p class="text-primary small mt-2 mb-0">▼ Clique para ver detalhes</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<hr class="my-4" />
+
+<!-- SEÇÃO: EM PRODUÇÃO -->
+<div class="d-flex align-items-center mb-3 gap-2">
+    <span class="badge bg-warning text-dark fs-6 px-3 py-2">Em Produção</span>
+    <span class="text-muted small">@_pedidosEmProcesso.Count() pedido(s) em andamento</span>
+</div>
+
+@if (!_pedidosEmProcesso.Any())
+{
+    <div class="alert alert-light border text-muted" role="alert">
+        Nenhum pedido em produção no momento.
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var pedido in _pedidosEmProcesso)
+        {
+            bool expandido = _pedidoExpandidoId == pedido.Id;
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100 border-warning @(expandido ? "border-2" : "")"
+                     style="cursor: pointer; transition: box-shadow 0.2s;"
+                     @onclick="() => ToggleExpandir(pedido.Id)">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="card-title mb-0">@pedido.Funcionario.NomeCompleto</h5>
+                                <small class="text-muted">Matrícula: <strong>@pedido.Funcionario.Matricula</strong></small>
+                            </div>
+                            <span class="badge bg-warning text-dark">Em Produção</span>
+                        </div>
+                        <p class="card-text text-muted small mb-0">
+                            📅 @pedido.Data.ToString("dd/MM/yyyy")
+                        </p>
+                        <p class="card-text text-muted small mb-0">
+                            📦 @pedido.Pecas.Count peça(s)
+                        </p>
+
+                        @if (expandido)
+                        {
+                            <hr />
+                            <h6 class="fw-semibold">Peças Solicitadas:</h6>
+                            <ul class="list-unstyled mb-2">
+                                @foreach (var pp in pedido.Pecas)
+                                {
+                                    <li class="d-flex justify-content-between border-bottom py-1">
+                                        <span>
+                                            @GetIconePeca(pp.Peca.Tipo)
+                                            <strong>@pp.Peca.Tipo.ToString()</strong> — Tam. @pp.Peca.Tamanho
+                                        </span>
+                                        <span class="badge bg-secondary">@pp.Quantidade</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-warning small mt-2 mb-0">▼ Clique para ver detalhes</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IEnumerable<Pedido> _pedidosNovos = [];
+    private IEnumerable<Pedido> _pedidosEmProcesso = [];
+    private int? _pedidoExpandidoId = null;
+    private string _mensagemSucesso = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        CarregarPedidos();
+    }
+
+    private void CarregarPedidos()
+    {
+        var todos = _pedidoRepository.GetAllComDetalhes().ToList();
+        _pedidosNovos = todos.Where(p => p.Status == StatusPedido.Novo).ToList();
+        _pedidosEmProcesso = todos.Where(p => p.Status == StatusPedido.EmProcesso).ToList();
+    }
+
+    private void ToggleExpandir(int pedidoId)
+    {
+        _pedidoExpandidoId = _pedidoExpandidoId == pedidoId ? null : pedidoId;
+    }
+
+    private void EnviarParaProducao(Pedido pedido)
+    {
+        _service.SolicitarFabricacaoUniforme(new List<Pedido> { pedido });
+        _pedidoExpandidoId = null;
+        _mensagemSucesso = $"Pedido de {pedido.Funcionario.NomeCompleto} enviado para produção com sucesso!";
+        CarregarPedidos();
+    }
+
+    private string GetIconePeca(TipoPeca tipo) => tipo switch
+    {
+        TipoPeca.Camiseta => "👕",
+        TipoPeca.Calca    => "👖",
+        TipoPeca.Calcado  => "👟",
+        _                 => "📦"
+    };
+}
