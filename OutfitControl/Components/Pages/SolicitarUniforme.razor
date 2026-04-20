@@ -137,7 +137,7 @@
 
 @code {
     private readonly List<string> _tamanhosLetrados = ["PP", "P", "M", "G", "GG", "EG"];
-    private readonly List<string> _tamanhosNumerados = Enumerable.Range(30, 50).Select(i => i.ToString()).ToList();
+    private readonly List<string> _tamanhosNumerados = Enumerable.Range(30, 20).Select(i => i.ToString()).ToList();
 
     private EditContext? _editContext;
 
@@ -293,7 +293,7 @@
         }
         catch (Exception ex)
         {
-            _solicitacaoSucesso = true;
+            _solicitacaoSucesso = false;
             _solicitacaoErro = true;
             Console.WriteLine(ex);
         }

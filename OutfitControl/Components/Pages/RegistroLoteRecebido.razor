@@ -1,0 +1,167 @@
+@page "/RegistroLoteRecebido"
+@rendermode InteractiveServer
+@using OutfitControl.Entities.Enum
+@using OutfitControl.Database
+@using OutfitControl.Database.Repositories
+@using OutfitControl.Entities
+@using OutfitControl.Entities.Enum
+@inject NavigationManager _uriHelper;
+@inject OutfitControlService _service
+<h3>Registro de lote de roupas recebido</h3>
+
+<form>
+    
+    <div>
+        <label for="quantidade-input" class="form-label">Quantidade de peças: </label>
+        <input id="quantidade-input" type="number" min="0" class="form-control"  @oninput="OnQuantidadeInputChanged" placeholder="Quantidade"/>
+    </div>
+    
+    <label for="peca-select" class="form-label">Tipo de peça: </label>
+    <select id="peca-select" class="form-select" @onchange="OnPecaSelectChange">
+        <option selected value=""></option>
+        <option value=@TipoPeca.Camiseta>Camiseta</option>
+        <option value=@TipoPeca.Calca>Calça</option>
+        <option value=@TipoPeca.Calcado>Calçado</option>
+    </select>
+
+    @if (_tamanhosPecas.Any())
+    {
+        <label for="tamanho-select" class="form-label">Tipo de peça: </label>
+        <select id="tamanho-select" class="form-select" @onchange="OnTamanhoSelectChange">
+            <option selected value=""></option>
+            @foreach (var t in _tamanhosPecas)
+            {
+                <option value=@t>@t</option>
+            }
+        </select>
+    }
+
+    @if (_tamanhoValido
+         && _pecaValido
+         && _quantidadeValido
+         && !_solicitacaoSucesso)
+    {
+        <button type="button" class="btn btn-primary my-1" @onclick="SubmitCallback">Registrar</button>
+    }
+
+    @if (_solicitacaoSucesso)
+    {
+        <button type="reset" @onclick="() => { _uriHelper.NavigateTo(_uriHelper.Uri, true); }" class="btn btn-primary my-1">Limpar</button>
+    }
+
+</form>
+
+@if (_solicitacaoSucesso)
+{
+    <div class="alert alert-success" role="alert">
+        Lote registrado!
+    </div>
+}
+
+@if (_solicitacaoErro)
+{
+    <div class="alert alert-danger" role="alert">
+        Ocorreu um erro ao registrar.
+    </div>
+}
+
+@code {
+    private readonly List<string> _tamanhosLetrados = ["PP", "P", "M", "G", "GG", "EG"];
+    private readonly List<string> _tamanhosNumerados = Enumerable.Range(30, 20).Select(i => i.ToString()).ToList();
+    private List<string> _tamanhosPecas = new List<string>();
+
+
+    private TipoPeca? _tipoPeca = null;
+    private string _tamanho = string.Empty;
+    private int _quantidade = 0;
+    
+    private bool _solicitacaoSucesso = false;
+    private bool _solicitacaoErro = false;
+    
+    private bool _tamanhoValido = false;
+    private bool _pecaValido = false;
+    private bool _quantidadeValido = false;
+
+    private void OnPecaSelectChange(ChangeEventArgs obj)
+    {
+        _tamanhosPecas = new List<string>();
+
+        if (string.IsNullOrEmpty(obj?.Value?.ToString()))
+        {
+            _tipoPeca = null;
+            _pecaValido = false;
+            return;
+        }
+        
+        _pecaValido = true;
+        
+        TipoPeca tipoPeca = Enum.Parse<TipoPeca>(obj.Value.ToString());
+
+        switch (tipoPeca)
+        {
+            case TipoPeca.Camiseta:
+            case TipoPeca.Calca:
+                _tamanhosLetrados.ForEach(t => _tamanhosPecas.Add(t));
+                break;
+            case TipoPeca.Calcado:
+                _tamanhosNumerados.ForEach(t => _tamanhosPecas.Add(t));
+                break;
+            default:
+                _tamanhosPecas.Clear();
+                _pecaValido = false;
+                break;
+        }
+        
+        _tipoPeca = tipoPeca;
+    }
+
+    private void OnTamanhoSelectChange(ChangeEventArgs obj)
+    {
+        if (string.IsNullOrEmpty(obj?.Value?.ToString()))
+        {
+            _tamanho = string.Empty;
+            _tamanhoValido = false;
+            return;
+        }
+        
+        _tamanho = obj?.Value?.ToString();
+        _tamanhoValido = true;
+    }
+
+    private void OnQuantidadeInputChanged(ChangeEventArgs obj)
+    {
+        if (string.IsNullOrEmpty(obj?.Value?.ToString()))
+        {
+            _quantidadeValido = false;
+            _quantidade = 0;
+            return;
+        }
+
+        if (int.TryParse(obj?.Value?.ToString(), out int quantidade) && quantidade > 0)
+        {
+            _quantidade = quantidade;
+            _quantidadeValido = true;
+        }
+        else
+        {
+            _quantidade = 0;
+            _quantidadeValido = false;
+        }
+    }
+
+    private void SubmitCallback(MouseEventArgs obj)
+    {
+        try
+        {
+            _service.RegistrarLote(_tipoPeca.Value, _tamanho, _quantidade);
+            _solicitacaoSucesso = true;
+        }
+        catch (Exception ex)
+        {
+            _solicitacaoSucesso = false;
+            _solicitacaoErro = true;
+            Console.WriteLine(ex);
+        }
+    }
+
+}
