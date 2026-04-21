@@ -1,0 +1,192 @@
+@page "/ConsultarPedido"
+@rendermode InteractiveServer
+@using OutfitControl.Database
+@using OutfitControl.Database.Repositories
+@using OutfitControl.Entities
+@using OutfitControl.Entities.Enum
+@inject FuncionarioRepository _funcionarioRepository
+@inject PedidoRepository _pedidoRepository
+
+<PageTitle>Consultar Pedido</PageTitle>
+
+<div class="container" style="max-width: 560px; margin-top: 2.5rem;">
+
+    <h3 class="mb-1">Consultar Pedido</h3>
+    <p class="text-muted mb-4">Digite sua matrícula para verificar o status do seu uniforme.</p>
+
+    <div class="input-group mb-3">
+        <input type="text"
+               class="form-control form-control-lg"
+               placeholder="Número da matrícula"
+               @bind="_matricula"
+               @bind:event="oninput"
+               @onkeydown="OnKeyDown" />
+        <button class="btn btn-primary px-4"
+                @onclick="Consultar"
+                disabled="@(string.IsNullOrWhiteSpace(_matricula))">
+            Consultar
+        </button>
+    </div>
+
+    @if (_consultado)
+    {
+        @if (_funcionario == null)
+        {
+            <div class="alert alert-danger">
+                <strong>Matrícula não encontrada.</strong> Verifique o número e tente novamente.
+            </div>
+        }
+        else if (!_pedidos.Any())
+        {
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body text-center py-4">
+                    <div style="font-size: 2.5rem;">📋</div>
+                    <h5 class="mt-2">@_funcionario.NomeCompleto</h5>
+                    <p class="text-muted mb-0">Nenhum pedido ativo encontrado para esta matrícula.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-body pb-2">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span style="font-size: 1.6rem;">👤</span>
+                        <div>
+                            <h5 class="mb-0">@_funcionario.NomeCompleto</h5>
+                            <small class="text-muted">Matrícula: <strong>@_funcionario.Matricula</strong></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @foreach (var pedido in _pedidos)
+            {
+                <div class="card shadow-sm mb-3 @GetCardBorderClass(pedido.Status)">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <p class="text-muted small mb-0">📅 Pedido de @pedido.Data.ToString("dd/MM/yyyy")</p>
+                                <p class="text-muted small mb-1">📦 @pedido.Pecas.Count peça(s)</p>
+                            </div>
+                            <span class="badge @GetBadgeClass(pedido.Status) fs-6 px-3 py-2">
+                                @GetStatusIcone(pedido.Status) @GetStatusTexto(pedido.Status)
+                            </span>
+                        </div>
+
+                        <div class="@GetAlertClass(pedido.Status) rounded p-2 mb-2">
+                            @GetMensagemStatus(pedido.Status)
+                        </div>
+
+                        <h6 class="fw-semibold mt-2 mb-1">Itens do pedido:</h6>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var pp in pedido.Pecas)
+                            {
+                                <li class="d-flex justify-content-between border-bottom py-1">
+                                    <span>
+                                        @GetIconePeca(pp.Peca.Tipo)
+                                        <strong>@pp.Peca.Tipo.ToString()</strong> — Tam. @pp.Peca.Tamanho
+                                    </span>
+                                    <span class="badge bg-secondary">@pp.Quantidade</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private string _matricula = string.Empty;
+    private bool _consultado = false;
+    private Funcionario? _funcionario = null;
+    private IEnumerable<Pedido> _pedidos = [];
+
+    private void Consultar()
+    {
+        if (string.IsNullOrWhiteSpace(_matricula)) return;
+
+        _funcionario = _funcionarioRepository.GetByMatricula(_matricula.Trim());
+        _consultado = true;
+
+        if (_funcionario != null)
+        {
+            _pedidos = _pedidoRepository.GetAllComDetalhes()
+                .Where(p => p.Funcionario.Id == _funcionario.Id
+                         && p.Status != StatusPedido.Finalizado)
+                .OrderByDescending(p => p.Data)
+                .ToList();
+        }
+        else
+        {
+            _pedidos = [];
+        }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Consultar();
+    }
+
+    private string GetStatusTexto(StatusPedido status) => status switch
+    {
+        StatusPedido.Novo               => "Aguardando Produção",
+        StatusPedido.EmProcesso         => "Em Produção",
+        StatusPedido.AguardandoRetirada => "Pronto para Retirada",
+        StatusPedido.Finalizado         => "Finalizado",
+        _                               => status.ToString()
+    };
+
+    private string GetStatusIcone(StatusPedido status) => status switch
+    {
+        StatusPedido.Novo               => "🕐",
+        StatusPedido.EmProcesso         => "⚙️",
+        StatusPedido.AguardandoRetirada => "✅",
+        StatusPedido.Finalizado         => "🏁",
+        _                               => "📦"
+    };
+
+    private string GetMensagemStatus(StatusPedido status) => status switch
+    {
+        StatusPedido.Novo               => "Seu pedido foi recebido e está aguardando ser enviado para produção.",
+        StatusPedido.EmProcesso         => "Seu uniforme está sendo produzido. Aguarde a liberação para retirada.",
+        StatusPedido.AguardandoRetirada => "✅ Seu uniforme está pronto! Dirija-se ao setor responsável para retirar.",
+        StatusPedido.Finalizado         => "Uniforme entregue. Pedido encerrado.",
+        _                               => string.Empty
+    };
+
+    private string GetBadgeClass(StatusPedido status) => status switch
+    {
+        StatusPedido.Novo               => "bg-primary",
+        StatusPedido.EmProcesso         => "bg-warning text-dark",
+        StatusPedido.AguardandoRetirada => "bg-success",
+        StatusPedido.Finalizado         => "bg-secondary",
+        _                               => "bg-secondary"
+    };
+
+    private string GetCardBorderClass(StatusPedido status) => status switch
+    {
+        StatusPedido.Novo               => "border-primary",
+        StatusPedido.EmProcesso         => "border-warning",
+        StatusPedido.AguardandoRetirada => "border-success border-2",
+        _                               => ""
+    };
+
+    private string GetAlertClass(StatusPedido status) => status switch
+    {
+        StatusPedido.Novo               => "bg-primary bg-opacity-10 text-primary",
+        StatusPedido.EmProcesso         => "bg-warning bg-opacity-10 text-warning-emphasis",
+        StatusPedido.AguardandoRetirada => "bg-success bg-opacity-10 text-success",
+        _                               => "bg-light text-muted"
+    };
+
+    private string GetIconePeca(TipoPeca tipo) => tipo switch
+    {
+        TipoPeca.Camiseta => "👕",
+        TipoPeca.Calca    => "👖",
+        TipoPeca.Calcado  => "👟",
+        _                 => "📦"
+    };
+}

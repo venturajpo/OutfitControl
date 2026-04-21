@@ -4,10 +4,39 @@
 @using OutfitControl.Database.Repositories
 @using OutfitControl.Entities
 @using OutfitControl.Entities.Enum
+@using Microsoft.EntityFrameworkCore
 @inject PedidoRepository _pedidoRepository
+@inject LoteRepository _loteRepository
 @inject OutfitControlService _service
 
 <PageTitle>Pedidos para Produção</PageTitle>
+
+<!-- Painel lateral de estoque -->
+<div style="position: fixed; top: 80px; right: 16px; z-index: 100; width: 200px; opacity: 0.92;">
+    <div class="card shadow-sm border-0" style="background: #f8f9fa;">
+        <div class="card-body p-2">
+            <p class="fw-semibold text-muted mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase;">📦 Estoque atual</p>
+            @if (!_estoque.Any())
+            {
+                <p class="text-muted mb-0" style="font-size: 0.75rem;">Nenhum item em estoque.</p>
+            }
+            else
+            {
+                @foreach (var item in _estoque)
+                {
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span style="font-size: 0.72rem;" class="text-secondary">
+                            @GetIconePeca(item.Key.Tipo) @item.Key.Tipo.ToString() @item.Key.Tamanho
+                        </span>
+                        <span class="badge @(item.Value > 0 ? "bg-success" : "bg-danger") ms-1" style="font-size: 0.68rem;">
+                            @item.Value
+                        </span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
 
 <h3 class="mb-4">Pedidos para Produção</h3>
 
@@ -19,7 +48,9 @@
     </div>
 }
 
-<!-- SEÇÃO: NOVOS PEDIDOS -->
+<!-- ══════════════════════════════════
+     SEÇÃO 1: NOVOS PEDIDOS
+     ══════════════════════════════════ -->
 <div class="d-flex align-items-center mb-3 gap-2">
     <span class="badge bg-primary fs-6 px-3 py-2">Novos Pedidos</span>
     <span class="text-muted small">@_pedidosNovos.Count() pedido(s) aguardando</span>
@@ -49,12 +80,8 @@ else
                             </div>
                             <span class="badge bg-primary">Novo</span>
                         </div>
-                        <p class="card-text text-muted small mb-0">
-                            📅 @pedido.Data.ToString("dd/MM/yyyy")
-                        </p>
-                        <p class="card-text text-muted small mb-0">
-                            📦 @pedido.Pecas.Count peça(s)
-                        </p>
+                        <p class="card-text text-muted small mb-0">📅 @pedido.Data.ToString("dd/MM/yyyy")</p>
+                        <p class="card-text text-muted small mb-0">📦 @pedido.Pecas.Count peça(s)</p>
 
                         @if (expandido)
                         {
@@ -91,7 +118,9 @@ else
 
 <hr class="my-4" />
 
-<!-- SEÇÃO: EM PRODUÇÃO -->
+<!-- ══════════════════════════════════
+     SEÇÃO 2: EM PRODUÇÃO
+     ══════════════════════════════════ -->
 <div class="d-flex align-items-center mb-3 gap-2">
     <span class="badge bg-warning text-dark fs-6 px-3 py-2">Em Produção</span>
     <span class="text-muted small">@_pedidosEmProcesso.Count() pedido(s) em andamento</span>
@@ -99,16 +128,18 @@ else
 
 @if (!_pedidosEmProcesso.Any())
 {
-    <div class="alert alert-light border text-muted" role="alert">
+    <div class="alert alert-light border text-muted mb-4" role="alert">
         Nenhum pedido em produção no momento.
     </div>
 }
 else
 {
-    <div class="row g-3">
+    <div class="row g-3 mb-5">
         @foreach (var pedido in _pedidosEmProcesso)
         {
             bool expandido = _pedidoExpandidoId == pedido.Id;
+            bool podeRetirar = PedidoPodeSerRetirado(pedido);
+
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card shadow-sm h-100 border-warning @(expandido ? "border-2" : "")"
                      style="cursor: pointer; transition: box-shadow 0.2s;"
@@ -119,14 +150,16 @@ else
                                 <h5 class="card-title mb-0">@pedido.Funcionario.NomeCompleto</h5>
                                 <small class="text-muted">Matrícula: <strong>@pedido.Funcionario.Matricula</strong></small>
                             </div>
-                            <span class="badge bg-warning text-dark">Em Produção</span>
+                            <div class="d-flex flex-column align-items-end gap-1">
+                                <span class="badge bg-warning text-dark">Em Produção</span>
+                                @if (podeRetirar)
+                                {
+                                    <span class="badge bg-success" style="font-size: 0.65rem;">✅ Estoque OK</span>
+                                }
+                            </div>
                         </div>
-                        <p class="card-text text-muted small mb-0">
-                            📅 @pedido.Data.ToString("dd/MM/yyyy")
-                        </p>
-                        <p class="card-text text-muted small mb-0">
-                            📦 @pedido.Pecas.Count peça(s)
-                        </p>
+                        <p class="card-text text-muted small mb-0">📅 @pedido.Data.ToString("dd/MM/yyyy")</p>
+                        <p class="card-text text-muted small mb-0">📦 @pedido.Pecas.Count peça(s)</p>
 
                         @if (expandido)
                         {
@@ -135,15 +168,37 @@ else
                             <ul class="list-unstyled mb-2">
                                 @foreach (var pp in pedido.Pecas)
                                 {
+                                    int qtdEstoque = ObterEstoquePeca(pp.Peca);
+                                    bool itemOk = qtdEstoque >= pp.Quantidade;
                                     <li class="d-flex justify-content-between border-bottom py-1">
                                         <span>
                                             @GetIconePeca(pp.Peca.Tipo)
                                             <strong>@pp.Peca.Tipo.ToString()</strong> — Tam. @pp.Peca.Tamanho
                                         </span>
-                                        <span class="badge bg-secondary">@pp.Quantidade</span>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span class="badge bg-secondary">@pp.Quantidade</span>
+                                            <span class="badge @(itemOk ? "bg-success" : "bg-danger")" style="font-size: 0.65rem;">
+                                                @(itemOk ? "✓" : $"falta {pp.Quantidade - qtdEstoque}")
+                                            </span>
+                                        </div>
                                     </li>
                                 }
                             </ul>
+
+                            @if (podeRetirar)
+                            {
+                                <button class="btn btn-success w-100 mt-2"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => EnviarParaRetirada(pedido)">
+                                    🎽 Enviar para Retirada
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                    ⚠️ Estoque insuficiente para liberar retirada.
+                                </div>
+                            }
                         }
                         else
                         {
@@ -156,22 +211,115 @@ else
     </div>
 }
 
+<hr class="my-4" />
+
+<!-- ══════════════════════════════════
+     SEÇÃO 3: RETIRADA
+     ══════════════════════════════════ -->
+<div class="d-flex align-items-center mb-3 gap-2">
+    <span class="badge bg-success fs-6 px-3 py-2">Retirada</span>
+    <span class="text-muted small">@_pedidosAguardandoRetirada.Count() pedido(s) prontos para entregar</span>
+</div>
+
+@if (!_pedidosAguardandoRetirada.Any())
+{
+    <div class="alert alert-light border text-muted" role="alert">
+        Nenhum pedido aguardando retirada no momento.
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var pedido in _pedidosAguardandoRetirada)
+        {
+            bool expandido = _pedidoExpandidoId == pedido.Id;
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100 border-success @(expandido ? "border-2" : "")"
+                     style="cursor: pointer; transition: box-shadow 0.2s;"
+                     @onclick="() => ToggleExpandir(pedido.Id)">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="card-title mb-0">@pedido.Funcionario.NomeCompleto</h5>
+                                <small class="text-muted">Matrícula: <strong>@pedido.Funcionario.Matricula</strong></small>
+                            </div>
+                            <span class="badge bg-success">Pronto p/ Retirar</span>
+                        </div>
+                        <p class="card-text text-muted small mb-0">📅 @pedido.Data.ToString("dd/MM/yyyy")</p>
+                        <p class="card-text text-muted small mb-0">📦 @pedido.Pecas.Count peça(s)</p>
+
+                        @if (expandido)
+                        {
+                            <hr />
+                            <h6 class="fw-semibold">Peças a Entregar:</h6>
+                            <ul class="list-unstyled mb-3">
+                                @foreach (var pp in pedido.Pecas)
+                                {
+                                    <li class="d-flex justify-content-between border-bottom py-1">
+                                        <span>
+                                            @GetIconePeca(pp.Peca.Tipo)
+                                            <strong>@pp.Peca.Tipo.ToString()</strong> — Tam. @pp.Peca.Tamanho
+                                        </span>
+                                        <span class="badge bg-secondary">@pp.Quantidade</span>
+                                    </li>
+                                }
+                            </ul>
+                            <button class="btn btn-success w-100"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => FinalizarRetirada(pedido)">
+                                ✅ Finalizar — Uniforme Entregue
+                            </button>
+                        }
+                        else
+                        {
+                            <p class="text-success small mt-2 mb-0">▼ Clique para confirmar entrega</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
 @code {
     private IEnumerable<Pedido> _pedidosNovos = [];
     private IEnumerable<Pedido> _pedidosEmProcesso = [];
+    private IEnumerable<Pedido> _pedidosAguardandoRetirada = [];
     private int? _pedidoExpandidoId = null;
     private string _mensagemSucesso = string.Empty;
+
+    private Dictionary<Peca, int> _estoque = new();
 
     protected override void OnInitialized()
     {
         CarregarPedidos();
+        CarregarEstoque();
     }
 
     private void CarregarPedidos()
     {
         var todos = _pedidoRepository.GetAllComDetalhes().ToList();
-        _pedidosNovos = todos.Where(p => p.Status == StatusPedido.Novo).ToList();
-        _pedidosEmProcesso = todos.Where(p => p.Status == StatusPedido.EmProcesso).ToList();
+        _pedidosNovos              = todos.Where(p => p.Status == StatusPedido.Novo).ToList();
+        _pedidosEmProcesso         = todos.Where(p => p.Status == StatusPedido.EmProcesso).ToList();
+        _pedidosAguardandoRetirada = todos.Where(p => p.Status == StatusPedido.AguardandoRetirada).ToList();
+    }
+
+    private void CarregarEstoque()
+    {
+        _estoque = _loteRepository.GetAllComDetalhes()
+            .GroupBy(l => l.Peca, (peca, lotes) => new { peca, total = lotes.Sum(l => l.Quantidade) })
+            .ToDictionary(x => x.peca, x => x.total);
+    }
+
+    private int ObterEstoquePeca(Peca peca)
+    {
+        var chave = _estoque.Keys.FirstOrDefault(p => p.Tipo == peca.Tipo && p.Tamanho == peca.Tamanho);
+        return chave != null ? _estoque[chave] : 0;
+    }
+
+    private bool PedidoPodeSerRetirado(Pedido pedido)
+    {
+        return pedido.Pecas.All(pp => ObterEstoquePeca(pp.Peca) >= pp.Quantidade);
     }
 
     private void ToggleExpandir(int pedidoId)
@@ -185,6 +333,25 @@ else
         _pedidoExpandidoId = null;
         _mensagemSucesso = $"Pedido de {pedido.Funcionario.NomeCompleto} enviado para produção com sucesso!";
         CarregarPedidos();
+        CarregarEstoque();
+    }
+
+    private void EnviarParaRetirada(Pedido pedido)
+    {
+        _service.EnviarParaRetirada(pedido);
+        _pedidoExpandidoId = null;
+        _mensagemSucesso = $"Pedido de {pedido.Funcionario.NomeCompleto} liberado para retirada. Estoque descontado.";
+        CarregarPedidos();
+        CarregarEstoque();
+    }
+
+    private void FinalizarRetirada(Pedido pedido)
+    {
+        _service.FinalizarRetirada(pedido);
+        _pedidoExpandidoId = null;
+        _mensagemSucesso = $"Uniforme de {pedido.Funcionario.NomeCompleto} entregue e pedido finalizado!";
+        CarregarPedidos();
+        CarregarEstoque();
     }
 
     private string GetIconePeca(TipoPeca tipo) => tipo switch

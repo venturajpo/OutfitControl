@@ -1,6 +1,7 @@
 using OutfitControl.Database.Repositories;
 using OutfitControl.Entities;
 using OutfitControl.Entities.Enum;
+using Microsoft.EntityFrameworkCore;
 
 namespace OutfitControl.Database;
 
@@ -91,9 +92,42 @@ public class OutfitControlService
         return lote;
     }
 
-    public Retirada RetirarUniforme(Pedido pedido)
+    /// <summary>
+    /// Envia o pedido para aguardar retirada e desconta as peças do estoque (lotes).
+    /// </summary>
+    public Retirada EnviarParaRetirada(Pedido pedido)
     {
-        pedido.Status = StatusPedido.Finalizado;
+        // Desconta do estoque cada peça do pedido
+        foreach (var pp in pedido.Pecas)
+        {
+            var restante = pp.Quantidade;
+
+            // Busca os lotes disponíveis desta peça, do mais antigo para o mais novo
+            var lotes = _loteRepository.GetAllComDetalhes()
+                .Where(l => l.Peca.Tipo == pp.Peca.Tipo && l.Peca.Tamanho == pp.Peca.Tamanho && l.Quantidade > 0)
+                .OrderBy(l => l.Data)
+                .ToList();
+
+            foreach (var lote in lotes)
+            {
+                if (restante <= 0) break;
+
+                if (lote.Quantidade >= restante)
+                {
+                    lote.Quantidade -= restante;
+                    restante = 0;
+                }
+                else
+                {
+                    restante -= lote.Quantidade;
+                    lote.Quantidade = 0;
+                }
+
+                _loteRepository.Update(lote);
+            }
+        }
+
+        pedido.Status = StatusPedido.AguardandoRetirada;
         _pedidoRepository.Update(pedido);
 
         var retirada = new Retirada
@@ -101,8 +135,22 @@ public class OutfitControlService
             Pedido = pedido,
             Data = DateOnly.FromDateTime(DateTime.Now)
         };
-        
+
         return _retiradaRepository.Add(retirada);
     }
-    
+
+    /// <summary>
+    /// Confirma que o funcionário retirou fisicamente o uniforme. Finaliza o pedido.
+    /// </summary>
+    public void FinalizarRetirada(Pedido pedido)
+    {
+        pedido.Status = StatusPedido.Finalizado;
+        _pedidoRepository.Update(pedido);
+    }
+
+    // Mantido por compatibilidade — use EnviarParaRetirada + FinalizarRetirada no novo fluxo
+    public Retirada RetirarUniforme(Pedido pedido)
+    {
+        return EnviarParaRetirada(pedido);
+    }
 }

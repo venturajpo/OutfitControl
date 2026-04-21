@@ -4,5 +4,6 @@ public enum StatusPedido
 {
     Novo,
     EmProcesso,
+    AguardandoRetirada,
     Finalizado,
 }
