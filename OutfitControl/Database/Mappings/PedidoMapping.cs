@@ -26,7 +26,7 @@ public class PedidoMapping : IEntityTypeConfiguration<Pedido>
 
         builder.Property(p => p.Status)
             .HasColumnName("status")
-            .HasColumnType("status ENUM('Novo', 'EmProcesso', 'Finalizado')")
+            .HasColumnType("status ENUM('Novo', 'EmProcesso', 'AguardandoRetirada', 'Finalizado')")
             .HasConversion(
                 code => code.ToString(),
                 db => (StatusPedido)Enum.Parse(typeof(StatusPedido), db))

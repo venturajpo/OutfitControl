@@ -6,6 +6,7 @@ namespace OutfitControl.Database;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
+    public DbSet<Estoque> Estoque { get; set; }
     public DbSet<Funcionario> Funcionarios { get; set; }
     public DbSet<Lote> Lotes { get; set; }
     public DbSet<Peca> Pecas { get; set; }
@@ -15,6 +16,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.ApplyConfiguration(new EstoqueMapping());
         modelBuilder.ApplyConfiguration(new FuncionarioMapping());
         modelBuilder.ApplyConfiguration(new LoteMapping());
         modelBuilder.ApplyConfiguration(new PecaMapping());

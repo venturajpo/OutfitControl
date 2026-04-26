@@ -15,6 +15,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 // Registro de repositórios
+builder.Services.AddScoped<EstoqueRepository>();
 builder.Services.AddScoped<FuncionarioRepository>();
 builder.Services.AddScoped<LoteRepository>();
 builder.Services.AddScoped<PecaRepository>();

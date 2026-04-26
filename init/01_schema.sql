@@ -19,7 +19,7 @@ CREATE TABLE pedido(
 id_pedido INT AUTO_INCREMENT PRIMARY KEY,
 data DATE NOT NULL,
 id_funcionario INT NOT NULL,
-status ENUM('Novo', 'EmProcesso', 'Finalizado') NOT NULL, -- Manter os enums usando caracteres ASCII padrão para maior compatibilidade
+status ENUM('Novo', 'EmProcesso', 'AguardandoRetirada', 'Finalizado') NOT NULL, -- Manter os enums usando caracteres ASCII padrão para maior compatibilidade
 CONSTRAINT FK_id_funcionario FOREIGN KEY (id_funcionario)
   REFERENCES funcionario(id_funcionario)
 );
@@ -52,5 +52,14 @@ CONSTRAINT FK_id_pedido_peca FOREIGN KEY (id_pedido)
 REFERENCES pedido(id_pedido)
 );
 
-
-
+CREATE VIEW estoque AS
+SELECT combined.id as id_peca, SUM(combined.qtd) as quantidade
+FROM (SELECT entrada.id_peca as id, entrada.quantidade as qtd
+FROM lote as entrada
+UNION ALL
+SELECT saida.id_peca as id,
+-saida.quantidade as qtd
+FROM peca_x_pedido as saida
+JOIN pedido ON saida.id_pedido = pedido.id_pedido
+WHERE pedido.status IN ('Finalizado', 'AguardandoRetirada')) as combined
+GROUP BY id_peca

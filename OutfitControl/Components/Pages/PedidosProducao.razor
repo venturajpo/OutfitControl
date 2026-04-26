@@ -7,6 +7,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject PedidoRepository _pedidoRepository
 @inject LoteRepository _loteRepository
+@inject EstoqueRepository _estoqueRepository;
 @inject OutfitControlService _service
 
 <PageTitle>Pedidos para Produção</PageTitle>
@@ -26,10 +27,10 @@
                 {
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <span style="font-size: 0.72rem;" class="text-secondary">
-                            @GetIconePeca(item.Key.Tipo) @item.Key.Tipo.ToString() @item.Key.Tamanho
+                            @GetIconePeca(item.Peca.Tipo) @item.Peca.Tipo.ToString() @item.Peca.Tamanho
                         </span>
-                        <span class="badge @(item.Value > 0 ? "bg-success" : "bg-danger") ms-1" style="font-size: 0.68rem;">
-                            @item.Value
+                        <span class="badge @(item.Quantidade > 0 ? "bg-success" : "bg-danger") ms-1" style="font-size: 0.68rem;">
+                            @item.Quantidade
                         </span>
                     </div>
                 }
@@ -288,7 +289,7 @@ else
     private int? _pedidoExpandidoId = null;
     private string _mensagemSucesso = string.Empty;
 
-    private Dictionary<Peca, int> _estoque = new();
+    private IEnumerable<Estoque> _estoque = new List<Estoque>();
 
     protected override void OnInitialized()
     {
@@ -306,15 +307,12 @@ else
 
     private void CarregarEstoque()
     {
-        _estoque = _loteRepository.GetAllComDetalhes()
-            .GroupBy(l => l.Peca, (peca, lotes) => new { peca, total = lotes.Sum(l => l.Quantidade) })
-            .ToDictionary(x => x.peca, x => x.total);
+        _estoque = _estoqueRepository.GetAll().Where(e => e.Quantidade > 0).ToList();
     }
 
     private int ObterEstoquePeca(Peca peca)
     {
-        var chave = _estoque.Keys.FirstOrDefault(p => p.Tipo == peca.Tipo && p.Tamanho == peca.Tamanho);
-        return chave != null ? _estoque[chave] : 0;
+        return _estoque.FirstOrDefault(e => e.Id == peca.Id)?.Quantidade ?? 0;
     }
 
     private bool PedidoPodeSerRetirado(Pedido pedido)
@@ -338,7 +336,7 @@ else
 
     private void EnviarParaRetirada(Pedido pedido)
     {
-        _service.EnviarParaRetirada(pedido);
+        _service.AprovarRetirada(pedido);
         _pedidoExpandidoId = null;
         _mensagemSucesso = $"Pedido de {pedido.Funcionario.NomeCompleto} liberado para retirada. Estoque descontado.";
         CarregarPedidos();
